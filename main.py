@@ -259,7 +259,6 @@ def get_live_formation(match_id: str, team_code: str):
           AND tr.minute >= ?
           AND tr.minute < ?
         ORDER BY tr.frame, tr.player_id
-        LIMIT 5000
     """
 
     new_df = conn.execute(
