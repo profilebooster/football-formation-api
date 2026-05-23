@@ -286,8 +286,18 @@ def get_live_formation(match_id: str, team_code: str):
         [LIVE_STORE[key]["all_data"], new_df],
         ignore_index=True,
     )
-
+    
+    # Nur letzte 4 Minuten behalten:
+    # vorherige 2 Minuten + aktuelle 2 Minuten
+    min_keep = max(0, end_minute - 4)
+    
     all_data = LIVE_STORE[key]["all_data"]
+    all_data = all_data[
+        (all_data["minute"] >= min_keep) &
+        (all_data["minute"] < end_minute)
+    ].copy()
+    
+    LIVE_STORE[key]["all_data"] = all_data
 
     # Spiegeln berücksichtigen
     processed_data = flip_selected_team_if_needed(all_data)
