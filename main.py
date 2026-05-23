@@ -19,7 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-\\ DB_PATH = Path("Bundesliga_2023_2024.duckdb")
+# DB_PATH = Path("Bundesliga_2023_2024.duckdb")
 DB_PATH = Path("demo_bundesliga.duckdb")
 
 MODEL_BUNDLE = joblib.load("rf_bundle.joblib")
