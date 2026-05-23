@@ -328,7 +328,7 @@ def get_live_formation(match_id: str, team_code: str):
 
     prediction = pipe.predict(X)[0]
 
-    players_for_plot = build_players_for_plot(processed_data)
+    players_for_plot = build_players_for_plot(all_data)
 
     LIVE_STORE[key]["current_minute"] += 2
 
