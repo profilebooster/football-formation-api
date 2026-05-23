@@ -303,7 +303,20 @@ def get_live_formation(match_id: str, team_code: str):
         if c not in features.columns:
             features[c] = "Unknown"
 
-    X = features[num_cols + cat_cols]
+    X = features[num_cols + cat_cols].copy()
+
+    # numerische Features erzwingen
+    for col in num_cols:
+        X[col] = pd.to_numeric(X[col], errors="coerce")
+    
+    # kategorische Features als String
+    for col in cat_cols:
+        X[col] = X[col].astype(str)
+    
+    # fehlende Werte
+    X[num_cols] = X[num_cols].fillna(0.0)
+    X[cat_cols] = X[cat_cols].fillna("Unknown")
+
     prediction = pipe.predict(X)[0]
 
     players_for_plot = build_players_for_plot(processed_data)
