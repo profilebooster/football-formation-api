@@ -82,13 +82,24 @@ def flip_selected_team_if_needed(df: pd.DataFrame) -> pd.DataFrame:
 
     return flipped
 
-def build_players_for_plot(df: pd.DataFrame) -> list[dict]:
+def build_players_for_plot(
+    df: pd.DataFrame,
+    goalkeeper_name: str | None = None,
+) -> list[dict]:
     if df.empty:
         return []
 
     d = df.copy()
     d = d[d["player_name"].notna()]
     d = d[d["player_name"] != "BALL"]
+
+    if goalkeeper_name:
+            gk = goalkeeper_name.strip().lower()
+            d = d[
+        d["player_name"]
+        .fillna("")
+        .str.lower() != gk
+    ]
 
     grouped = (
         d.groupby("player_name")
@@ -104,17 +115,15 @@ def build_players_for_plot(df: pd.DataFrame) -> list[dict]:
     grouped["x_norm_std"] = grouped["x_norm_std"].fillna(0.1)
     grouped["y_norm_std"] = grouped["y_norm_std"].fillna(0.1)
 
-    # goalkeeper entfernen: linksester Spieler
-    if len(grouped) > 10:
+    # Falls Torwartname NICHT bekannt ist:
+    # automatische alte Regel behalten
+    if not goalkeeper_name and len(grouped) > 10:
         gk_idx = grouped["x_norm_mean"].idxmin()
         grouped = grouped.drop(index=gk_idx)
 
-    # maximal 10 Feldspieler
     grouped = grouped.head(10)
 
     return grouped.to_dict(orient="records")
-
-
 @app.get("/")
 def root():
     return {
@@ -219,7 +228,11 @@ def get_team_tracking_window(
 
 
 @app.get("/formation/live")
-def get_live_formation(match_id: str, team_code: str):
+def get_live_formation(
+    match_id: str,
+    team_code: str,
+    goalkeeper_name: str | None = None,
+):
     key = f"{match_id}_{team_code}"
 
     if key not in LIVE_STORE:
@@ -301,7 +314,29 @@ def get_live_formation(match_id: str, team_code: str):
 
     # Spiegeln berücksichtigen
     processed_data = flip_selected_team_if_needed(all_data)
+
+    if goalkeeper_name:
+        gk = goalkeeper_name.strip().lower()
+        processed_data = processed_data[
+            processed_data["player_name"].fillna("").str.lower() != gk
+        ].copy()
+    elif len(processed_data["player_name"].dropna().unique()) > 10:
+        grouped_tmp = (
+            processed_data[processed_data["player_name"] != "BALL"]
+            .groupby("player_name")["x_position"]
+            .mean()
+            .reset_index()
+        )
     
+        gk_name = grouped_tmp.loc[
+            grouped_tmp["x_position"].idxmin(),
+            "player_name",
+        ]
+    
+        processed_data = processed_data[
+            processed_data["player_name"] != gk_name
+        ].copy()
+
     features = build_features(processed_data)
 
     for c in num_cols:
@@ -328,7 +363,10 @@ def get_live_formation(match_id: str, team_code: str):
 
     prediction = pipe.predict(X)[0]
 
-    players_for_plot = build_players_for_plot(processed_data)
+    players_for_plot = build_players_for_plot(
+        processed_data,
+        goalkeeper_name=goalkeeper_name,
+    )
 
     LIVE_STORE[key]["current_minute"] += 2
 
