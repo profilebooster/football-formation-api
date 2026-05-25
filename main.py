@@ -315,11 +315,20 @@ def get_live_formation(
     # Spiegeln berücksichtigen
     processed_data = flip_selected_team_if_needed(all_data)
 
+    matched_goalkeeper = None
+
     if goalkeeper_name:
-        gk = goalkeeper_name.strip().lower()
+        matched_goalkeeper = find_matching_goalkeeper_name(
+            processed_data,
+            goalkeeper_name,
+        )
+
+    if matched_goalkeeper:
         processed_data = processed_data[
-            processed_data["player_name"].fillna("").str.lower() != gk
+            processed_data["player_name"] != matched_goalkeeper
         ].copy()
+
+    
     elif len(processed_data["player_name"].dropna().unique()) > 10:
         grouped_tmp = (
             processed_data[processed_data["player_name"] != "BALL"]
@@ -365,7 +374,7 @@ def get_live_formation(
 
     players_for_plot = build_players_for_plot(
         processed_data,
-        goalkeeper_name=goalkeeper_name,
+        goalkeeper_name=matched_goalkeeper,
     )
 
     LIVE_STORE[key]["current_minute"] += 2
@@ -377,6 +386,8 @@ def get_live_formation(
         "total_rows": len(all_data),
         "predicted_formation": str(prediction),
         "players": players_for_plot,
+        "matched_goalkeeper": matched_goalkeeper,
+
     }
 
 
@@ -408,3 +419,41 @@ def debug_schema(table_name: str):
     df = conn.execute(f"DESCRIBE {table_name}").fetchdf()
     conn.close()
     return df.to_dict(orient="records")
+
+def normalize_name(name: str) -> str:
+    return (
+        name.lower()
+        .replace(".", "")
+        .replace("-", " ")
+        .strip()
+    )
+
+
+def find_matching_goalkeeper_name(
+    df: pd.DataFrame,
+    goalkeeper_input: str,
+) -> str | None:
+    if not goalkeeper_input:
+        return None
+
+    normalized_input = normalize_name(goalkeeper_input)
+
+    players = (
+        df["player_name"]
+        .dropna()
+        .astype(str)
+        .unique()
+    )
+
+    for player in players:
+        normalized_player = normalize_name(player)
+
+        # exakte Übereinstimmung
+        if normalized_input == normalized_player:
+            return player
+
+        # Nachname enthalten
+        if normalized_input in normalized_player:
+            return player
+
+    return None
